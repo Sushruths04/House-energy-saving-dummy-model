@@ -41,3 +41,18 @@ This model is **only for testing purposes** and is not a full-fledged energy sim
 ## Requirements
 To run this project, ensure that your `requirements.txt` file includes:
 
+This setup works best with **Python 3.10**.
+
+## Limitations
+- This model is designed for **individual houses only** and does not scale to district-level or large-scale energy assessments.
+- It is a **dummy model** meant for testing and demonstration purposes. The results are simplified and do not reflect actual energy simulations or comprehensive life cycle assessments (LCA).
+- The model does not include advanced machine learning or data-driven insights but serves as a conceptual demo of energy savings.
+
+## Future Improvements
+- Extend the model to handle multiple buildings and district-level energy analysis.
+- Add machine learning models to predict savings based on historical data.
+- Integrate environmental impact metrics like carbon footprint reduction.
+
+## License
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
