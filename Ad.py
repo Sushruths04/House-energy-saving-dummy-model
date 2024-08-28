@@ -1,82 +1,92 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
 
-# Title
-st.title("Advanced Energy Savings Estimator")
+# Load the dataset
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00374/energydata_complete.csv"
+df = pd.read_csv(url)
 
-# Input: House characteristics
-area_of_house = st.number_input('House area (m²)', min_value=50, max_value=500, step=10)
-house_age = st.number_input('Age of the house (years)', min_value=1, max_value=100, step=1)
-base_energy_consumption = st.number_input('Baseline energy consumption (kWh/year)', min_value=1000, max_value=50000, step=100)
+# Feature selection (including only relevant features)
+features = ['T1', 'RH_1', 'T2', 'RH_2', 'T3', 'RH_3', 'T_out', 'RH_out', 'Windspeed', 'Visibility', 'Tdewpoint']
+X = df[features]  # The features to train on
+y = df['Appliances']  # The target variable (energy consumption of appliances)
 
-# Input: Insulation
-insulation_quality = st.selectbox('Insulation quality', ['Poor', 'Average', 'Good', 'Excellent'])
-insulation_cost = st.slider('Insulation cost ($)', 500, 20000, step=500)
-insulation_efficiency = {'Poor': 0.1, 'Average': 0.25, 'Good': 0.4, 'Excellent': 0.6}[insulation_quality]
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Input: Windows
-window_type = st.selectbox('Window type', ['Single Pane', 'Double Pane', 'Triple Pane'])
-window_cost = st.slider('Window cost ($)', 1000, 30000, step=1000)
-window_efficiency = {'Single Pane': 0.1, 'Double Pane': 0.3, 'Triple Pane': 0.5}[window_type]
+# Train the model
+model = RandomForestRegressor(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
 
-# Input: HVAC
-hvac_efficiency = st.slider('HVAC efficiency (%)', 70, 100, step=1)
-hvac_cost = st.slider('HVAC upgrade cost ($)', 1000, 20000, step=1000)
+# Streamlit Title
+st.title("House Energy Consumption Prediction")
 
-# Input: External factors
-average_temperature = st.slider('Average external temperature (°C)', -10, 40, step=1)
-energy_price = st.slider('Current energy price ($/kWh)', 0.05, 0.50, step=0.01)
+# Sidebar for Input Features
+st.sidebar.header('Input Features')
 
-# Advanced calculations
-# Estimating dynamic energy savings
-insulation_savings = base_energy_consumption * insulation_efficiency * (20 - average_temperature) / 20
-window_savings = base_energy_consumption * window_efficiency * (20 - average_temperature) / 20
-hvac_savings = base_energy_consumption * (1 - hvac_efficiency/100) * (average_temperature / 30)
+house_size = st.sidebar.slider('House Size (in square meters)', min_value=50, max_value=300, value=150, step=10)
+renovation_cost = st.sidebar.slider('Renovation Cost (in $)', min_value=10000, max_value=100000, value=50000, step=5000)
+previous_energy_usage = st.sidebar.slider('Previous Energy Usage (kWh/year)', min_value=1000, max_value=10000, value=5000, step=500)
+age_of_house = st.sidebar.slider('Age of the House (years)', min_value=1, max_value=50, value=20, step=1)
+number_of_rooms = st.sidebar.slider('Number of Rooms', min_value=1, max_value=10, value=4, step=1)
+location_score = st.sidebar.slider('Location Score', min_value=1.0, max_value=10.0, value=5.0, step=0.1)
+energy_price = st.sidebar.slider('Energy Price ($/kWh)', min_value=0.05, max_value=0.50, value=0.12, step=0.01)
 
-total_savings = insulation_savings + window_savings + hvac_savings
+# Button to Toggle Predictions
+if st.button('Predict'):
+    # Input data for prediction
+    new_data = pd.DataFrame({
+        'T1': [house_size],
+        'RH_1': [renovation_cost],
+        'T2': [previous_energy_usage],
+        'RH_2': [age_of_house],
+        'T3': [number_of_rooms],
+        'RH_3': [location_score],
+        'T_out': [20],  # Default values
+        'RH_out': [50],
+        'Windspeed': [10],
+        'Visibility': [40],
+        'Tdewpoint': [10]
+    })
 
-# Calculating costs
-total_cost = insulation_cost + window_cost + hvac_cost
+    # Make a prediction based on the user input
+    predicted_energy_savings = model.predict(new_data)
 
-# ROI and Break-even calculations
-roi = (total_savings * energy_price) / total_cost
-years_to_breakeven = total_cost / (total_savings * energy_price)
+    # Calculating energy savings in monetary terms
+    energy_cost_savings = predicted_energy_savings[0] * energy_price
 
-# Display the results
-st.write(f"Total annual energy savings: {total_savings:.2f} kWh/year")
-st.write(f"Total renovation cost: ${total_cost}")
-st.write(f"Estimated ROI: {roi:.2f}")
-st.write(f"Years to break even: {years_to_breakeven:.2f}")
+    # Display the results
+    st.write(f"### Predicted Energy Consumption: {predicted_energy_savings[0]:.2f} kWh/year")
+    st.write(f"### Energy Cost Savings: ${energy_cost_savings:.2f} per year")
 
-# Scenario analysis for future energy prices
-future_years = np.arange(1, 21)
-future_energy_prices = energy_price * (1 + 0.03) ** future_years  # assuming a 3% annual increase in energy price
-future_savings = total_savings * future_energy_prices
-cumulative_savings = np.cumsum(future_savings)
+    # Model Evaluation on Test Set
+    y_pred = model.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
 
-# Plot the cumulative savings
-fig, ax = plt.subplots(figsize=(10, 6))
-ax.plot(future_years, cumulative_savings, label='Cumulative Savings')
-ax.axhline(y=total_cost, color='red', linestyle='--', label='Total Renovation Cost')
-ax.axvline(x=years_to_breakeven, color='blue', linestyle='--', label=f'Break-even Point ({years_to_breakeven:.2f} years)')
-ax.set_xlabel("Years")
-ax.set_ylabel("Cumulative Savings ($)")
-ax.set_title("Cumulative Savings vs. Renovation Cost")
-ax.legend()
-st.pyplot(fig)
+    st.write(f"#### Model Mean Squared Error on Test Set: {mse:.2f}")
+    st.write(f"#### Model R-squared Score on Test Set: {r2:.2f}")
 
-# Scenario comparison
-best_case_savings = total_savings * 1.2  # 20% better performance
-worst_case_savings = total_savings * 0.8  # 20% worse performance
+    # Plot True vs Predicted Energy Consumption
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(y_test, y_pred, alpha=0.5, label='Predicted vs True')
+    ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], '--r', lw=2, label='Perfect Fit Line')
+    ax.set_xlabel("True Energy Consumption (kWh/year)")
+    ax.set_ylabel("Predicted Energy Consumption (kWh/year)")
+    ax.set_title("True vs Predicted Energy Consumption")
+    ax.legend()
+    st.pyplot(fig)
 
-fig, ax = plt.subplots(figsize=(10, 6))
-ax.plot(future_years, np.cumsum(best_case_savings * future_energy_prices), label='Best Case')
-ax.plot(future_years, np.cumsum(worst_case_savings * future_energy_prices), label='Worst Case')
-ax.axhline(y=total_cost, color='red', linestyle='--', label='Total Renovation Cost')
-ax.set_xlabel("Years")
-ax.set_ylabel("Cumulative Savings ($)")
-ax.set_title("Scenario Comparison: Cumulative Savings")
-ax.legend()
-st.pyplot(fig)
+    # Feature Importance (Optional)
+    feature_importances = pd.Series(model.feature_importances_, index=X.columns)
+    fig2, ax2 = plt.subplots(figsize=(8, 6))
+    feature_importances.sort_values().plot(kind='barh', ax=ax2, color='skyblue')
+    ax2.set_title("Feature Importance in Energy Consumption Prediction")
+    st.pyplot(fig2)
+
+else:
+    st.write("Click the 'Predict' button to get results.")
